@@ -1,0 +1,54 @@
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: Cluster
+metadata:
+  creationTimestamp: "2022-11-03T09:50:59Z"
+  finalizers:
+  #- cluster.cluster.x-k8s.io
+  name: capi-events
+  namespace: default
+  resourceVersion: "19117833"
+  uid: 0c4e84e0-9df2-4158-bd7a-72e80ae9cf75
+spec:
+  clusterNetwork:
+    pods:
+      cidrBlocks:
+      - 192.168.0.0/16
+    serviceDomain: cluster.local
+  controlPlaneEndpoint:
+    host: 10.154.16.40
+    port: 6443
+  controlPlaneRef:
+    apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+    kind: KubeadmControlPlane
+    name: capi-events-control-plane
+    namespace: default
+  infrastructureRef:
+    apiVersion: infrastructure.cluster.x-k8s.io/v1alpha5
+    kind: OpenStackCluster
+    name: capi-events
+    namespace: default
+status:
+  conditions:
+  - lastTransitionTime: "2022-11-03T10:03:37Z"
+    status: "True"
+    type: Ready
+  - lastTransitionTime: "2022-11-03T09:56:32Z"
+    status: "True"
+    type: ControlPlaneInitialized
+  - lastTransitionTime: "2022-11-03T10:03:37Z"
+    status: "True"
+    type: ControlPlaneReady
+  - lastTransitionTime: "2022-11-03T09:53:04Z"
+    status: "True"
+    type: InfrastructureReady
+  controlPlaneReady: true
+  failureDomains:
+    az1:
+      controlPlane: true
+    az2:
+      controlPlane: true
+    nova:
+      controlPlane: true
+  infrastructureReady: true
+  observedGeneration: 2
+  phase: Provisioned

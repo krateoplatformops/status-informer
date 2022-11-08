@@ -1,0 +1,15 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "helm.serviceAccountName" . }}
+  labels:
+    {{- include "helm.labels" . | nindent 8 }}
+rules:
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create"]
+  - apiGroups: ["*"]
+    resources: ["*"]
+    verbs: ["get", "watch", "list"]
+  - nonResourceURLs: ["*"]
+    verbs:  ["get", "watch", "list"]

@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: status-informer
+  namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: status-informer
+rules:
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create"]
+  - apiGroups: ["*"]
+    resources: ["*"]
+    verbs: ["get", "watch", "list"]
+  - nonResourceURLs: ["*"]
+    verbs:  ["get", "watch", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: status-informer-binding
+subjects:
+- kind: ServiceAccount
+  name: status-informer
+  namespace: default
+roleRef:
+  kind: ClusterRole
+  name: status-informer
+  apiGroup: rbac.authorization.k8s.io
