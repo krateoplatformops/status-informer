@@ -12,9 +12,15 @@ import (
 	"github.com/krateoplatformops/status-informer/internal/informer"
 	"github.com/krateoplatformops/status-informer/internal/support"
 	"github.com/rs/zerolog"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/tools/record"
+
+	corev1 "k8s.io/api/core/v1"
+	typedv1core "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
 const (
@@ -77,6 +83,20 @@ func main() {
 		log.Fatal().Err(err).Msg("Building kubeconfig.")
 	}
 
+	clientset, err := kubernetes.NewForConfig(cfg)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Creating kubernetes clientset.")
+	}
+
+	scheme := runtime.NewScheme()
+	_ = corev1.AddToScheme(scheme)
+
+	// all the good events stuff is here
+	eventBroadcaster := record.NewBroadcaster()
+	eventBroadcaster.StartStructuredLogging(4)
+	eventBroadcaster.StartRecordingToSink(&typedv1core.EventSinkImpl{Interface: clientset.CoreV1().Events("")})
+	eventRecorder := eventBroadcaster.NewRecorder(scheme, corev1.EventSource{})
+
 	worker, err := informer.NewStatusInformer(informer.StatusInformerOpts{
 		RESTConfig:     cfg,
 		Log:            log,
@@ -87,6 +107,7 @@ func main() {
 			Version:  *resourceVersion,
 			Resource: *resourceName,
 		},
+		Recorder: eventRecorder,
 	})
 	if err != nil {
 		log.Fatal().Err(err).Msg("Creating the resource status informer.")

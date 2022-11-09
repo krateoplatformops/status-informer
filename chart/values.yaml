@@ -40,10 +40,11 @@ podEnv:
     value: "false"
   - name: STATUS_INFORMER_GROUP
     value: "cluster.x-k8s.io"
-   - name: STATUS_INFORMER_VERSION
+  - name: STATUS_INFORMER_VERSION
     value: "v1"
-   - name: STATUS_INFORMER_RESOURCE
+  - name: STATUS_INFORMER_RESOURCE
     value: "clusters"
+
 
 resources:
   # We usually recommend not to specify default resources and to leave this as a conscious

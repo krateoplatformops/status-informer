@@ -1,16 +1,13 @@
 package informer
 
 import (
-	"context"
 	"fmt"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/rs/zerolog"
 
 	"github.com/krateoplatformops/status-informer/internal/shortid"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -19,10 +16,7 @@ import (
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
-)
-
-const (
-	keyCreatedBy = "krateo.io/created-by"
+	"k8s.io/client-go/tools/record"
 )
 
 type StatusInformer struct {
@@ -31,6 +25,7 @@ type StatusInformer struct {
 	informer       cache.SharedInformer
 	throttlePeriod time.Duration
 	sid            *shortid.Shortid
+	recorder       record.EventRecorder
 }
 
 type StatusInformerOpts struct {
@@ -39,15 +34,11 @@ type StatusInformerOpts struct {
 	ThrottlePeriod       time.Duration
 	Log                  zerolog.Logger
 	GroupVersionResource schema.GroupVersionResource
+	Recorder             record.EventRecorder
 }
 
 // NewStatusInformer will create a new status watcher using the input params
 func NewStatusInformer(opts StatusInformerOpts) (*StatusInformer, error) {
-	sid, err := shortid.New(1, shortid.DefaultABC, 2342)
-	if err != nil {
-		return nil, err
-	}
-
 	// Grab a dynamic interface that we can create informers from
 	dc, err := dynamic.NewForConfig(opts.RESTConfig)
 	if err != nil {
@@ -66,7 +57,7 @@ func NewStatusInformer(opts StatusInformerOpts) (*StatusInformer, error) {
 		log:            opts.Log,
 		throttlePeriod: opts.ThrottlePeriod,
 		dynamicClient:  dc,
-		sid:            sid,
+		recorder:       opts.Recorder,
 	}, nil
 }
 
@@ -111,28 +102,8 @@ func (w *StatusInformer) onObject(obj interface{}) {
 		return
 	}
 
-	gvr := schema.GroupVersionResource{
-		Group:    "",
-		Version:  "v1",
-		Resource: "events",
-	}
-
 	for _, cond := range status.Conditions {
-		id, err := w.sid.Generate()
-		if err != nil {
-			w.log.Error().Err(err).Msg("Generating short identifier.")
-			return
-		}
-
-		e := corev1.Event{}
-		e.Name = fmt.Sprintf("status-informer-event.%s", id)
-		e.Namespace = unstr.GetNamespace()
-		e.Labels = map[string]string{
-			keyCreatedBy: "status-informer",
-		}
-		e.EventTime.Time = time.Now()
-
-		e.InvolvedObject = corev1.ObjectReference{
+		ref := corev1.ObjectReference{
 			UID:             unstr.GetUID(),
 			Kind:            unstr.GetKind(),
 			Name:            unstr.GetName(),
@@ -140,32 +111,14 @@ func (w *StatusInformer) onObject(obj interface{}) {
 			APIVersion:      unstr.GetAPIVersion(),
 			ResourceVersion: unstr.GetResourceVersion(),
 		}
-		e.Message = cond.Message
-		e.Reason = cond.Reason
-		e.Type = cond.Type
 
-		res, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&e)
-		if err != nil {
-			w.log.Error().Err(err).Msg("Converting event to unstructured")
-			return
+		eventType := corev1.EventTypeNormal
+		if cond.Status != ConditionStatus(corev1.ConditionTrue) {
+			eventType = corev1.EventTypeWarning
 		}
 
-		spew.Dump(res)
-
-		_, err = w.dynamicClient.Resource(gvr).Apply(context.Background(),
-			e.GetName(),
-			&unstructured.Unstructured{
-				Object: res,
-			},
-			v1.ApplyOptions{FieldManager: "krateo"})
-
-		if res != nil {
-			w.log.Error().Err(err).Msgf("Creating event: %s.", e.GetName())
-			return
-		}
-
+		w.recorder.Event(&ref, eventType, cond.Reason, cond.Message)
 	}
-
 }
 
 func (w *StatusInformer) findStatus(unstr *unstructured.Unstructured) *Status {
