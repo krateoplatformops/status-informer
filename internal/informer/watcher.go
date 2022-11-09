@@ -6,7 +6,6 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"github.com/krateoplatformops/status-informer/internal/shortid"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -24,7 +23,6 @@ type StatusInformer struct {
 	dynamicClient  dynamic.Interface
 	informer       cache.SharedInformer
 	throttlePeriod time.Duration
-	sid            *shortid.Shortid
 	recorder       record.EventRecorder
 }
 
